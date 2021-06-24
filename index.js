@@ -7,6 +7,7 @@ const lRoute = {
     user : require('./routes/user'),
     recipe : require('./routes/recipe'),
     diet : require('./routes/diet'),
+    admin : require('./routes/admin'),
 };
 
 app.use(exp.urlencoded({ extended: true }));
@@ -22,6 +23,7 @@ app.use(sqlConnection(mysql, {
 app.use('/api/user', lRoute.user);
 app.use('/api/recipe', lRoute.recipe);
 app.use('/api/diet', lRoute.diet);
+app.use('/api/admin', lRoute.admin);
 
 app.listen(3000, function() {console.log('Love You 3000')});
 
