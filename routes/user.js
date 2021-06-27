@@ -107,6 +107,143 @@ route.get('/login', async function (req, res) {
     }
 });
 
+route.put('/profile', async function (req, res) {
+    if(!req.headers['x-auth-token']){
+        return res.status(403).json({
+            status: 403,
+            error: "No Token!"
+        });
+    }else {
+        if(!req.body.new_pass){
+            let conn = db.getConn();
+            let q = db.executeQuery(conn, `
+                SELECT * FROM user WHERE api_key='${req.headers['x-auth-token']}'
+            `);
+
+            if(q.length > 0){
+                let q2 = db.executeQuery(conn, `
+                    UPDATE user SET nama='${req.body.nama}'
+                `);
+
+                const hasil = {
+                    email : q[0].email,
+                    nama : req.body.nama
+                };
+                conn.release();
+                
+                return res.status(200).json({
+                    status : 200,
+                    message : "Berhasil Ganti Nama",
+                    result : hasil
+                });
+            }else {
+                return res.status(403).json({
+                    status: 403,
+                    error: "Token Not Valid!"
+                });
+            }
+        }else if(req.body.new_pass && !req.body.old_pass){
+            return res.status(403).json({
+                status: 403,
+                error: "Password lama tidak ada!"
+            });
+        }else if(!req.body.new_pass && req.body.old_pass){
+            return res.status(403).json({
+                status: 403,
+                error: "Password baru tidak ada!"
+            });
+        }else if(!req.body.nama){
+            let conn = db.getConn();
+            let q = db.executeQuery(conn, `
+                SELECT * FROM user WHERE api_key='${req.headers['x-auth-token']}'
+            `);  
+
+            if(q.length > 0){
+                if(req.body.old_pass == q[0].password){
+                    let q2 = db.executeQuery(conn, `
+                        UPDATE user SET pass='${req.body.new_pass}'
+                    `);
+
+                    conn.release();
+                    
+                    return res.status(200).json({
+                        status : 200,
+                        message : "Berhasil Ganti Password"
+                    });
+                }else {
+                    conn.release();
+                    return res.status(403).json({
+                        status: 403,
+                        error: "Password Lama Salah!"
+                    });
+                }
+            }else {
+                conn.release();
+                return res.status(403).json({
+                    status: 403,
+                    error: "Token Not Valid!"
+                });
+            }
+        }
+    }
+});
+
+route.get('/profile', async function(req, res){
+    if(!req.headers['x-auth-token']){
+        return res.status(403).json({
+            status: 403,
+            error: "No Token!"
+        });
+    }else {
+        let conn = db.getConn();
+        let q = db.executeQuery(conn, `
+            SELECT * FROM user WHERE api_key='${req.headers['x-auth-token']}'
+        `);
+
+        if(q.length > 0){
+            const hasil = {
+                email: q[0].email,
+                nama: q[0].nama,
+                tipe: q[0].tipe,
+                api_key: q[0].api_key,
+                fav_recipe: [],
+                fav_diet: []
+            }
+
+            let q2 = db.executeQuery(conn, `
+                SELECT * FROM fav_recipe WHERE email_user='${q[0].email}'
+            `);
+            
+            if(q2.length > 0){
+                for(let i = 0; i < q2.length; i++){
+                    hasil.fav_recipe.push(q2[i].id_recipe);
+                }
+            }
+            
+            let q3 = db.executeQuery(conn, `
+                SELECT * FROM fav_diet WHERE email_user='${q[0].email}'
+            `);
+            
+            if(q3.length > 0){
+                for(let i = 0; i < q3.length; i++){
+                    hasil.fav_diet.push(q3[i].id_diet);
+                }
+            }
+
+            conn.release();
+            return res.status(200).json({
+                status: 200,
+                result: hasil
+            })
+        }else {
+            conn.release();
+            return res.status(403).json({
+                status: 403,
+                error: "Token Not Valid!"
+            });
+        }
+    }
+});
 
 
 module.exports = route;
