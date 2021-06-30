@@ -30,6 +30,7 @@ route.post('/register', async function (req, res) {
     let pass = req.body.password;
     let nama = req.body.nama_user;
 
+
     let api = genAPIKey(10);
     
     let conn = await db.getConn();

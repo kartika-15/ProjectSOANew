@@ -19,8 +19,6 @@ const storage = multer.diskStorage({
         }else{
             id ='RE'+(select.length+1)
         }
-
-
         const filename =  id;
         callback(null,(filename+'.'+extension));
     }
@@ -81,7 +79,6 @@ route.post('/new', upload.single('foto_recipe'),async function (req,res){
         }else{
             id ='RE'+(select.length+1)
         }
-        
         let q = await db.executeQuery(conn, `
             INSERT INTO recipe VALUES ('${id}', '${email}', '${nama}',0,${tipe}, '${dir}')
         `);
@@ -93,7 +90,7 @@ route.post('/new', upload.single('foto_recipe'),async function (req,res){
             tipe: tipe,
         };
 
-        res.status(200).send({hasil})
+        res.status(201).send({hasil})
     }
 })
 route.post('/add_bahan', upload.single('foto_recipe'),async function (req,res){
@@ -125,7 +122,6 @@ route.post('/add_bahan', upload.single('foto_recipe'),async function (req,res){
         let q = await db.executeQuery(conn, `
             INSERT INTO bahan VALUES ('${id}','${id_recipe}', '${nama}', '${jumlah}',${satuan})
         `);
-        
         let querySearch = 'https://api.edamam.com/api/nutrition-data?app_id=fcf84afe&app_key=cb2c4e1180b131a4b79eb3bb0fa9caf5%09&nutrition-type=logging&ingr='+nama
         const axios = require("axios")
         let resultGet = await axios.get(querySearch)
@@ -141,9 +137,7 @@ route.post('/add_bahan', upload.single('foto_recipe'),async function (req,res){
             nama_recipe: checkRecipe[0].nama_recipe,
             kalori: total_kal
         };
-        res.status(200).send({hasil})
+        res.status(201).send({hasil})
     }
 })
-
-
 module.exports = route;
