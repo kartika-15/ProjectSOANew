@@ -1,10 +1,16 @@
 const mysql= require('mysql');
 //connect ke mysql pakai pool
+// const pool= mysql.createPool({
+//     host: process.env.DB_HOST,
+//     user: process.env.DB_USER,
+//     password: process.env.DB_PASSWORD,
+//     database: process.env.DB_NAME
+// });
 const pool= mysql.createPool({
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'project_soa_diet'
+    host: 'freedb.tech',
+    user: 'freedbtech_mico',
+    password: 'Michael454.',
+    database: 'freedbtech_projectSoa'
 });
 
 const getConn= () => {
