@@ -1,8 +1,11 @@
 const exp= require('express');
 const db = require('../database');
 const jwt = require("jsonwebtoken");
-
+const midtransClient = require('midtrans-client');
+const { executeQuery } = require('../database');
 const route = exp.Router();
+
+
 
 const genAPIKey = (length) => {
     const alphabets= 'abcdefghijklmnopqrstuvwxyz'.split('');
@@ -24,6 +27,101 @@ const genAPIKey = (length) => {
 
     return key;
 };
+
+let midtransCore = new midtransClient.CoreApi({
+    isProduction: false,
+    serverKey: 'SB-Mid-server-QHDnXzZNidBm5Udpi4s-WHZW',
+    clientKey: 'SB-Mid-client-r5PGe78t3erp3CKn'
+});
+async function getBill(req){
+    let bill = {
+        "bill": 0
+    };
+    let api = req.body.api_key
+    let conn = await db.getConn()
+    let select = await db.executeQuery(conn,`select * from user where api_key = '${api}'`)
+    conn.release()
+    if (select[0].tipe == "N") {
+        if(req.body.jumlah == -99999){
+            bill.bill = 10000
+        }else{
+            bill.bill = 100 * req.body.jumlah;
+        }
+        
+    }
+    else if(select[0].tipe == "P"){
+        bill.bill = 1000;
+    }
+    return bill;
+}
+route.post("/pay/cc", async function (req, res) {
+    const card = {
+        'card_number': req.body.card_number,//'5264 2210 3887 4659',
+        'card_exp_month': req.body.card_exp_month,//'12',
+        'card_exp_year': req.body.card_exp_year,//'2025',
+        'card_cvv': req.body.card_cvv,//'123',
+        'client_key': midtransCore.apiConfig.clientKey,
+    };
+    const cardToken = await midtransCore.cardToken(card);
+    const bill = await getBill(req);
+    const parameter = {
+        "payment_type": "credit_card",
+        "transaction_details": {
+            "gross_amount": bill.bill,
+            "order_id": "t" + new Date().getTime(),
+        },
+        "credit_card":{
+            "token_id": cardToken.token_id
+        }
+    };
+    
+    
+    let conn = await db.getConn()
+    // executeQuery(conn, `update user set last_paid = now() where api_key = '${req.body.api_key}'`);
+    let jum = await executeQuery(conn, `select * from user where api_key = '${req.body.api_key}'`)
+    conn.release();
+    if(jum[0].tipe == "N"){
+        const chargeResponse = await midtransCore.charge(parameter);
+        console.log(chargeResponse);
+        if(chargeResponse.fraud_status == "accept"){
+            
+            // return res.send(jum[0].api_hit)
+            let total_api = 0
+            if(jum[0].tipe == "N"){
+                total_api = parseInt(jum[0].api_hit)+parseInt(req.body.jumlah)
+                if(req.body.jumlah == -99999){
+                    total_api = -9999999
+                    let hasil = await executeQuery(conn, `update user set last_paid = now(), api_hit = ${total_api}, tipe = 'P' where api_key = '${req.body.api_key}'`)
+                    return res.status(200).send({
+                        "jenis":'Upgrade user',
+                        "msg": "successfully paid!",
+                        api_hit :total_api
+                    });
+                }
+            }
+            let hasil = await executeQuery(conn, `update user set last_paid = now(), api_hit = ${total_api} where api_key = '${req.body.api_key}'`)
+            
+            return res.status(200).send({
+                "jenis":'tambah api_hit',
+                "msg": "successfully paid!",
+                api_hit :total_api
+            });
+        }
+        else{
+            conn.release();
+            return res.status(400).send({
+                "msg": "Fraud detected!"
+            });
+        }
+    }else{
+        return res.status(200).send({
+            "jenis":'tambah api_hit',
+            "msg": "Anda tidak perlu menambah api_hit karena premium"
+        });
+    }
+    
+});
+
 
 route.post('/register', async function (req, res) {
     let email = req.body.email;
@@ -53,7 +151,7 @@ route.post('/register', async function (req, res) {
             })
         }
         let q = await db.executeQuery(conn, `
-            INSERT INTO user VALUES ('${email}', '${pass}', '${nama}','N', '${api}')
+            INSERT INTO user VALUES ('${email}', '${pass}', '${nama}','N', '${api}', 0, null)
         `);
 
         const hasil = {
@@ -74,7 +172,6 @@ route.get('/login', async function (req, res) {
     let email = req.body.email;
     let pass = req.body.password;
     let epas = 'admin';
-    let api = genAPIKey(10);
     
     let conn = await db.getConn();
     let check = await db.executeQuery(conn, `
@@ -83,6 +180,30 @@ route.get('/login', async function (req, res) {
 
     if(check.length > 0){
         conn.release();
+        if(check[0].tipe == "P"){
+            let date = new Date(check[0].last_paid)
+            var day = date.getDate();
+            var month = date.getMonth();
+            var year = date.getFullYear();
+            let now = new Date();
+            const diffTime = Math.abs(now - date);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            if(diffDays > 30 && diffDays < 34){
+                return res.status(200).json({
+                    status : 200,
+                    alert : "silahkan bayar langganan anda",
+                    message : "Api Key anda = "+ check[0].api_key
+                })
+            }else if(diffDays>=34){
+                let update = await db.executeQuery(conn,`UPDATE user SET tipe = 'N', api_hit = 0 where email = '${email}'`)
+                return res.status(200).json({
+                    status : 200,
+                    alert : "Anda telah menjadi user biasa",
+                    message : "Api Key anda = "+ check[0].api_key
+                })
+            }
+        }
+        
         return res.status(200).json({
             status : 200,
             message : "Api Key anda = "+ check[0].api_key
@@ -97,7 +218,7 @@ route.get('/login', async function (req, res) {
             },
             "minadmin",{expiresIn:'1H'}
         );
-
+        
         return res.status(200).send({"token":token});
     }
     else {
