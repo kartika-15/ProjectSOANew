@@ -43,15 +43,24 @@ const upload = multer({
 });
 
 
-route.get('/all', async function (req,res){
+route.get('/all/:api_key', async function (req,res){
     let conn = await db.getConn()
-    let api = req.body.api_key
+    let api = req.params.api_key
+    // return res.send(api)
     let checkAPI = await db.executeQuery(conn, `select * from user where api_key = '${api}'`)
     if(checkAPI[0] == null){
         res.status(404).send({msg:"API tidak valid"})
     }else{
-        let select = await db.executeQuery(conn,`select * from recipe `)
-        res.status(200).send({select})
+        let select = await db.executeQuery(conn,`select * from recipe`)
+        if(checkAPI[0].api_hit > 0){
+            // return res.send(checkAPI[0].api_hit - 1 + "")
+            let potong = await db.executeQuery(conn, `update user set api_hit = ${checkAPI[0].api_hit - 1} where api_key = '${api}'`)
+        }else{
+            if(checkAPI[0].tipe == "P") res.status(200).send({select})
+            res.status(400).send({msg:'Silahkan beli akses'})
+        }
+        
+        res.status(200).send({select,api_hit :checkAPI[0].api_hit - 1})
     }
 })
 
