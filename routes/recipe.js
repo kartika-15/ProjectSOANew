@@ -110,9 +110,23 @@ route.post('/add_bahan', upload.single('foto_recipe'),async function (req,res){
     let nama = req.body.nama_bahan
     let satuan = req.body.satuan
     let checkAPI = await db.executeQuery(conn, `select * from user where api_key = '${api}'`)
+    
     let checkRecipe = await db.executeQuery(conn, `select * from recipe where id_recipe = '${id_recipe}'`)
     // return res.send(resultGet.data['calories']+"")
     if(checkRecipe[0] == null){
+        if(id_recipe == "RE999"){
+            let select = await db.executeQuery(conn,`select * from bahan`)
+            let hasil = {
+                id: "dummyID",
+                nama: nama,
+                jumlah: jumlah,
+                satuan: satuan,
+                "======Re":"sep======",
+                nama_recipe: "dummy",
+                kalori: 0
+            };
+            res.status(201).send({hasil})
+        }
         res.status(404).send({msg:"id_recipe tidak ada"})
     }
     if(checkAPI[0] == null){
@@ -146,6 +160,8 @@ route.post('/add_bahan', upload.single('foto_recipe'),async function (req,res){
             nama_recipe: checkRecipe[0].nama_recipe,
             kalori: total_kal
         };
+        
+        
         res.status(201).send({hasil})
     }
 })

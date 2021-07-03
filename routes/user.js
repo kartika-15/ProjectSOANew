@@ -40,6 +40,7 @@ async function getBill(req){
     let api = req.body.api_key
     let conn = await db.getConn()
     let select = await db.executeQuery(conn,`select * from user where api_key = '${api}'`)
+    
     conn.release()
     if (select[0].tipe == "N") {
         if(req.body.jumlah == -99999){
@@ -55,71 +56,75 @@ async function getBill(req){
     return bill;
 }
 route.post("/pay/cc", async function (req, res) {
-    const card = {
-        'card_number': req.body.card_number,//'5264 2210 3887 4659',
-        'card_exp_month': req.body.card_exp_month,//'12',
-        'card_exp_year': req.body.card_exp_year,//'2025',
-        'card_cvv': req.body.card_cvv,//'123',
-        'client_key': midtransCore.apiConfig.clientKey,
-    };
-    const cardToken = await midtransCore.cardToken(card);
-    const bill = await getBill(req);
-    const parameter = {
-        "payment_type": "credit_card",
-        "transaction_details": {
-            "gross_amount": bill.bill,
-            "order_id": "t" + new Date().getTime(),
-        },
-        "credit_card":{
-            "token_id": cardToken.token_id
-        }
-    };
-    
+   
     
     let conn = await db.getConn()
-    // executeQuery(conn, `update user set last_paid = now() where api_key = '${req.body.api_key}'`);
-    let jum = await executeQuery(conn, `select * from user where api_key = '${req.body.api_key}'`)
-    conn.release();
-    if(jum[0].tipe == "N"){
-        const chargeResponse = await midtransCore.charge(parameter);
-        console.log(chargeResponse);
-        if(chargeResponse.fraud_status == "accept"){
-            
-            // return res.send(jum[0].api_hit)
-            let total_api = 0
-            if(jum[0].tipe == "N"){
-                total_api = parseInt(jum[0].api_hit)+parseInt(req.body.jumlah)
-                if(req.body.jumlah == -99999){
-                    total_api = -9999999
-                    let hasil = await executeQuery(conn, `update user set last_paid = now(), api_hit = ${total_api}, tipe = 'P' where api_key = '${req.body.api_key}'`)
-                    return res.status(200).send({
-                        "jenis":'Upgrade user',
-                        "msg": "successfully paid!",
-                        api_hit :total_api
-                    });
-                }
+    let checkAPI = await db.executeQuery(conn, `select * from user where api_key = '${req.body.api_key}'`)
+    if(checkAPI[0] == null){
+        res.status(404).send({msg:"API tidak valid"})
+    }else{
+        const card = {
+            'card_number': req.body.card_number,//'5264 2210 3887 4659',
+            'card_exp_month': req.body.card_exp_month,//'12',
+            'card_exp_year': req.body.card_exp_year,//'2025',
+            'card_cvv': req.body.card_cvv,//'123',
+            'client_key': midtransCore.apiConfig.clientKey,
+        };
+        const cardToken = await midtransCore.cardToken(card);
+        const bill = await getBill(req);
+        const parameter = {
+            "payment_type": "credit_card",
+            "transaction_details": {
+                "gross_amount": bill.bill,
+                "order_id": "t" + new Date().getTime(),
+            },
+            "credit_card":{
+                "token_id": cardToken.token_id
             }
-            let hasil = await executeQuery(conn, `update user set last_paid = now(), api_hit = ${total_api} where api_key = '${req.body.api_key}'`)
-            
+        };
+        // executeQuery(conn, `update user set last_paid = now() where api_key = '${req.body.api_key}'`);
+        let jum = await executeQuery(conn, `select * from user where api_key = '${req.body.api_key}'`)
+        conn.release();
+        if(jum[0].tipe == "N"){
+            const chargeResponse = await midtransCore.charge(parameter);
+            console.log(chargeResponse);
+            if(chargeResponse.fraud_status == "accept"){
+                
+                // return res.send(jum[0].api_hit)
+                let total_api = 0
+                if(jum[0].tipe == "N"){
+                    total_api = parseInt(jum[0].api_hit)+parseInt(req.body.jumlah)
+                    if(req.body.jumlah == -99999){
+                        total_api = -9999999
+                        let hasil = await executeQuery(conn, `update user set last_paid = now(), api_hit = ${total_api}, tipe = 'P' where api_key = '${req.body.api_key}'`)
+                        return res.status(201).send({
+                            "jenis":'Upgrade user',
+                            "msg": "successfully paid!",
+                            api_hit :total_api
+                        });
+                    }
+                }
+                let hasil = await executeQuery(conn, `update user set last_paid = now(), api_hit = ${total_api} where api_key = '${req.body.api_key}'`)
+                
+                return res.status(201).send({
+                    "jenis":'tambah api_hit',
+                    "msg": "successfully paid!",
+                    api_hit :total_api
+                });
+            }
+            else{
+                conn.release();
+                return res.status(400).send({
+                    "msg": "Fraud detected!"
+                });
+            }
+        }else{
             return res.status(200).send({
                 "jenis":'tambah api_hit',
-                "msg": "successfully paid!",
-                api_hit :total_api
+                "msg": "Anda tidak perlu menambah api_hit karena premium"
             });
         }
-        else{
-            conn.release();
-            return res.status(400).send({
-                "msg": "Fraud detected!"
-            });
-        }
-    }else{
-        return res.status(200).send({
-            "jenis":'tambah api_hit',
-            "msg": "Anda tidak perlu menambah api_hit karena premium"
-        });
     }
-    
 });
 
 
@@ -224,7 +229,7 @@ route.get('/login', async function (req, res) {
     else {
         return res.status(404).json({
             status : 404,
-            message : "Email / Password salah"
+            message : "Email tidak ditemukan / Password Salah"
         });
     }
 });
