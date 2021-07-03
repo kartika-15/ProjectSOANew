@@ -12,19 +12,17 @@ const lRoute = {
 
 app.use(exp.urlencoded({ extended: true }));
 
-app.use(sqlConnection(mysql, {
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    port: 3306,
-    database: 'project_soa_diet'
-}, 'pool'));
+
 
 app.use('/api/user', lRoute.user);
 app.use('/api/recipe', lRoute.recipe);
 app.use('/api/diet', lRoute.diet);
 app.use('/api/admin', lRoute.admin);
+app.get('/', async function (req, res) {
+    res.status(201).send({msg:"Hallo"})
+});
+const port = process.env.PORT || 3000
 
-app.listen(3000, function() {console.log('Love You 3000')});
+app.listen(port, function() {console.log(`Love You ${port}`)});
 
 
