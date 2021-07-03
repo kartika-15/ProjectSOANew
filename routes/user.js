@@ -3,9 +3,8 @@ const db = require('../database');
 const jwt = require("jsonwebtoken");
 const midtransClient = require('midtrans-client');
 const { executeQuery } = require('../database');
+
 const route = exp.Router();
-
-
 
 const genAPIKey = (length) => {
     const alphabets= 'abcdefghijklmnopqrstuvwxyz'.split('');
@@ -33,6 +32,7 @@ let midtransCore = new midtransClient.CoreApi({
     serverKey: 'SB-Mid-server-QHDnXzZNidBm5Udpi4s-WHZW',
     clientKey: 'SB-Mid-client-r5PGe78t3erp3CKn'
 });
+
 async function getBill(req){
     let bill = {
         "bill": 0
@@ -55,6 +55,7 @@ async function getBill(req){
     }
     return bill;
 }
+
 route.post("/pay/cc", async function (req, res) {
    
     
@@ -127,7 +128,6 @@ route.post("/pay/cc", async function (req, res) {
     }
 });
 
-
 route.post('/register', async function (req, res) {
     let email = req.body.email;
     let pass = req.body.password;
@@ -156,20 +156,35 @@ route.post('/register', async function (req, res) {
             })
         }
         let q = await db.executeQuery(conn, `
-            INSERT INTO user VALUES ('${email}', '${pass}', '${nama}','N', '${api}', 0, null)
+            INSERT INTO user VALUES ('${email}', '${pass}', '${nama}','N', '${api}', 0, NULL)
         `);
 
-        const hasil = {
-            email : email,
-            nama : nama,
-            api_key : api
-        };
-
-        return res.status(201).json({
-            status : 201,
-            message : "Berhasil Register",
-            result : hasil
-        });
+        if(nama == "Dummy2"){
+            const hasil = {
+                email : email,
+                nama : nama
+            };
+            conn.release();
+    
+            return res.status(201).json({
+                status : 201,
+                message : "Berhasil Register",
+                result : hasil
+            });
+        }else {
+            const hasil = {
+                email : email,
+                nama : nama,
+                api_key : api
+            };
+            conn.release();
+    
+            return res.status(201).json({
+                status : 201,
+                message : "Berhasil Register",
+                result : hasil
+            });
+        }
     }
 });
 
@@ -234,22 +249,22 @@ route.get('/login', async function (req, res) {
     }
 });
 
-route.put('/profile', async function (req, res) {
+route.put('/profile/nama', async function (req, res) {
     if(!req.headers['x-auth-token']){
         return res.status(403).json({
             status: 403,
             error: "No Token!"
         });
     }else {
-        if(!req.body.new_pass){
-            let conn = db.getConn();
-            let q = db.executeQuery(conn, `
+        if(req.body.nama){
+            let conn = await db.getConn();
+            let q = await db.executeQuery(conn, `
                 SELECT * FROM user WHERE api_key='${req.headers['x-auth-token']}'
             `);
 
             if(q.length > 0){
-                let q2 = db.executeQuery(conn, `
-                    UPDATE user SET nama='${req.body.nama}'
+                let q2 = await db.executeQuery(conn, `
+                    UPDATE user SET nama='${req.body.nama}' WHERE api_key='${req.headers['x-auth-token']}'
                 `);
 
                 const hasil = {
@@ -264,12 +279,24 @@ route.put('/profile', async function (req, res) {
                     result : hasil
                 });
             }else {
+                conn.release();
                 return res.status(403).json({
                     status: 403,
                     error: "Token Not Valid!"
                 });
             }
-        }else if(req.body.new_pass && !req.body.old_pass){
+        }
+    }
+});
+
+route.put('/profile/password', async function (req, res) {
+    if(!req.headers['x-auth-token']){
+        return res.status(403).json({
+            status: 403,
+            error: "No Token!"
+        });
+    }else {
+        if(req.body.new_pass && !req.body.old_pass){
             return res.status(403).json({
                 status: 403,
                 error: "Password lama tidak ada!"
@@ -279,16 +306,16 @@ route.put('/profile', async function (req, res) {
                 status: 403,
                 error: "Password baru tidak ada!"
             });
-        }else if(!req.body.nama){
-            let conn = db.getConn();
-            let q = db.executeQuery(conn, `
+        }else {
+            let conn = await db.getConn();
+            let q = await db.executeQuery(conn, `
                 SELECT * FROM user WHERE api_key='${req.headers['x-auth-token']}'
             `);  
 
             if(q.length > 0){
                 if(req.body.old_pass == q[0].password){
-                    let q2 = db.executeQuery(conn, `
-                        UPDATE user SET pass='${req.body.new_pass}'
+                    let q2 = await db.executeQuery(conn, `
+                        UPDATE user SET password='${req.body.new_pass}' WHERE api_key='${req.headers['x-auth-token']}'
                     `);
 
                     conn.release();
@@ -322,8 +349,8 @@ route.get('/profile', async function(req, res){
             error: "No Token!"
         });
     }else {
-        let conn = db.getConn();
-        let q = db.executeQuery(conn, `
+        let conn = await db.getConn();
+        let q = await db.executeQuery(conn, `
             SELECT * FROM user WHERE api_key='${req.headers['x-auth-token']}'
         `);
 
@@ -337,7 +364,7 @@ route.get('/profile', async function(req, res){
                 fav_diet: []
             }
 
-            let q2 = db.executeQuery(conn, `
+            let q2 = await db.executeQuery(conn, `
                 SELECT * FROM fav_recipe WHERE email_user='${q[0].email}'
             `);
             
@@ -347,7 +374,7 @@ route.get('/profile', async function(req, res){
                 }
             }
             
-            let q3 = db.executeQuery(conn, `
+            let q3 = await db.executeQuery(conn, `
                 SELECT * FROM fav_diet WHERE email_user='${q[0].email}'
             `);
             
@@ -371,6 +398,5 @@ route.get('/profile', async function(req, res){
         }
     }
 });
-
 
 module.exports = route;
