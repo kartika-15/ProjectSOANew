@@ -57,36 +57,35 @@ async function getBill(req){
 }
 
 route.post("/pay/cc", async function (req, res) {
-   
-    
     let conn = await db.getConn()
     let checkAPI = await db.executeQuery(conn, `select * from user where api_key = '${req.body.api_key}'`)
     if(checkAPI[0] == null){
         res.status(404).send({msg:"API tidak valid"})
     }else{
-        const card = {
-            'card_number': req.body.card_number,//'5264 2210 3887 4659',
-            'card_exp_month': req.body.card_exp_month,//'12',
-            'card_exp_year': req.body.card_exp_year,//'2025',
-            'card_cvv': req.body.card_cvv,//'123',
-            'client_key': midtransCore.apiConfig.clientKey,
-        };
-        const cardToken = await midtransCore.cardToken(card);
-        const bill = await getBill(req);
-        const parameter = {
-            "payment_type": "credit_card",
-            "transaction_details": {
-                "gross_amount": bill.bill,
-                "order_id": "t" + new Date().getTime(),
-            },
-            "credit_card":{
-                "token_id": cardToken.token_id
-            }
-        };
-        // executeQuery(conn, `update user set last_paid = now() where api_key = '${req.body.api_key}'`);
         let jum = await executeQuery(conn, `select * from user where api_key = '${req.body.api_key}'`)
         conn.release();
         if(jum[0].tipe == "N"){
+            const card = {
+                'card_number': req.body.card_number,//'5264 2210 3887 4659',
+                'card_exp_month': req.body.card_exp_month,//'12',
+                'card_exp_year': req.body.card_exp_year,//'2025',
+                'card_cvv': req.body.card_cvv,//'123',
+                'client_key': midtransCore.apiConfig.clientKey,
+            };
+            const cardToken = await midtransCore.cardToken(card);
+            const bill = await getBill(req);
+            const parameter = {
+                "payment_type": "credit_card",
+                "transaction_details": {
+                    "gross_amount": bill.bill,
+                    "order_id": "t" + new Date().getTime(),
+                },
+                "credit_card":{
+                    "token_id": cardToken.token_id
+                }
+            };
+            // executeQuery(conn, `update user set last_paid = now() where api_key = '${req.body.api_key}'`);
+            
             const chargeResponse = await midtransCore.charge(parameter);
             console.log(chargeResponse);
             if(chargeResponse.fraud_status == "accept"){
@@ -120,7 +119,7 @@ route.post("/pay/cc", async function (req, res) {
                 });
             }
         }else{
-            return res.status(200).send({
+            return res.status(201).send({
                 "jenis":'tambah api_hit',
                 "msg": "Anda tidak perlu menambah api_hit karena premium"
             });
@@ -216,6 +215,7 @@ route.get('/login', async function (req, res) {
                 })
             }else if(diffDays>=34){
                 let update = await db.executeQuery(conn,`UPDATE user SET tipe = 'N', api_hit = 0 where email = '${email}'`)
+                conn.release()
                 return res.status(200).json({
                     status : 200,
                     alert : "Anda telah menjadi user biasa",
@@ -223,7 +223,6 @@ route.get('/login', async function (req, res) {
                 })
             }
         }
-        
         return res.status(200).json({
             status : 200,
             message : "Api Key anda = "+ check[0].api_key
@@ -242,6 +241,8 @@ route.get('/login', async function (req, res) {
         return res.status(200).send({"token":token});
     }
     else {
+        
+        conn.release()
         return res.status(404).json({
             status : 404,
             message : "Email tidak ditemukan / Password Salah"

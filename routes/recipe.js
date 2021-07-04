@@ -125,6 +125,7 @@ route.post('/add_bahan', upload.single('foto_recipe'),async function (req,res){
                 nama_recipe: "dummy",
                 kalori: 0
             };
+            conn.release()
             res.status(201).send({hasil})
         }
         res.status(404).send({msg:"id_recipe tidak ada"})
