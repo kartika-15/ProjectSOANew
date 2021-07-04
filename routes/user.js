@@ -97,7 +97,7 @@ route.post("/pay/cc", async function (req, res) {
                     if(req.body.jumlah == -99999){
                         total_api = -9999999
                         let hasil = await executeQuery(conn, `update user set last_paid = now(), api_hit = ${total_api}, tipe = 'P' where api_key = '${req.body.api_key}'`)
-                        return res.status(201).send({
+                        return res.status(200).send({
                             "jenis":'Upgrade user',
                             "msg": "successfully paid!",
                             api_hit :total_api
@@ -106,7 +106,7 @@ route.post("/pay/cc", async function (req, res) {
                 }
                 let hasil = await executeQuery(conn, `update user set last_paid = now(), api_hit = ${total_api} where api_key = '${req.body.api_key}'`)
                 
-                return res.status(201).send({
+                return res.status(200).send({
                     "jenis":'tambah api_hit',
                     "msg": "successfully paid!",
                     api_hit :total_api
@@ -119,7 +119,7 @@ route.post("/pay/cc", async function (req, res) {
                 });
             }
         }else{
-            return res.status(201).send({
+            return res.status(200).send({
                 "jenis":'tambah api_hit',
                 "msg": "Anda tidak perlu menambah api_hit karena premium"
             });
