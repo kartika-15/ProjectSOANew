@@ -1,7 +1,152 @@
 const exp= require('express');
 const db = require('../database');
-
+const axios = require('axios').default;
 const route = exp.Router();
+const genAPIKey = (length) => {
+    const alphabets= 'abcdefghijklmnopqrstuvwxyz'.split('');
+
+    let key= '';
+
+    for (let i= 0; i<15; i++) {
+        let hash= Math.floor(Math.random()*2)+1;
+        let model= Math.floor(Math.random()*2)+1;
+        let randAlpha= Math.floor(Math.random()*alphabets.length);
+        
+        if (hash === 1) {
+            key+= Math.floor(Math.random()*length);
+        } else {
+            if (model === 1) key+= alphabets[randAlpha].toUpperCase();
+            else key+= alphabets[randAlpha]; 
+        }
+    }
+
+    return key;
+};
+
+router.get('/deskripsi', async function (req, res) {
+
+    let id_diet = req.body.id_diet;
+    let api = genAPIKey(10);
+    
+    let conn = await db.getConn();
+
+    
+    let check = await db.executeQuery(conn, `
+        SELECT * FROM diet WHERE id_diet='${id_diet}'
+    `);
+
+    if(check.length > 0){
+        conn.release();
+        return res.status(400).json({
+            status : 400,
+            error : " Id diet tidak sesuai!"
+        })
+    }else {
+       
+
+        const hasil = {
+            id_diet: id_diet,
+           
+            api_key : api
+        };
+
+        return res.status(200).json({
+            status : 200,
+            message : "Id diet sesuai",
+            result : hasil
+        });
+    }
+
+
+});
+
+
+
+router.get('/deskripsidiet',async function (req, res)  {
+    const q = req.query.q;
+    const ingr = req.query.ingr;
+    const diet = req.query.diet;
+    const hasil= await axios.get(`https://api.edamam.com/api/recipes/v2?type=public&q=${q}&app_id=0dda822b&app_key=e372f9948b90e95d2b78ce5fd5cb85d8&diet=${ingr}&diet=${diet}`)
+    if(Math.floor(hasil.status/100) == 2)
+    {
+            
+            
+            res.render("diet",{"hasil":hasil});
+            return res.status(200).send({"hasil":hasil});
+    }
+    else
+    {
+            return res.status(500).send("Error Calling Recipe API");
+    }
+
+});
+
+router.get('/kaloridiet', async function (req, res) {
+    const q = req.query.q;
+    const ingr = req.query.ingr;
+    const diet = req.query.diet;
+    const calories = req.query.calories;
+    const hasil= await axios.get(`https://api.edamam.com/api/recipes/v2?type=public&q=${q}&app_id=0dda822b&app_key=e372f9948b90e95d2b78ce5fd5cb85d8&diet=${ingr}&diet=${diet}&calories=${calories}`)
+    if(Math.floor(hasil.status/100) == 2)
+    {
+            
+            
+            res.render("diet",{"hasil":hasil});
+            return res.status(200).send({"hasil":hasil});
+    }
+    else
+    {
+            return res.status(500).send("Error Calling Recipe API");
+    }
+});
+router.get('/menubreakfast', async function(req, res) {
+    const hasilbreakfast= await axios.get(`https://api.edamam.com/api/recipes/v2?type=public&q=oatmeal&app_id=0dda822b&app_key=e372f9948b90e95d2b78ce5fd5cb85d8`)
+    if(Math.floor(hasilbreakfast.status/100) == 2)
+    {
+            
+            
+            res.render("menudiet",{"hasilbreakfast":hasilbreakfast});
+            return res.status(200).send({"hasilbreakfast":hasilbreakfast});
+    }
+    else
+    {
+            return res.status(500).send("Error Calling Recipe API");
+    } 
+
+});
+router.get('/menulunch', async function(req, res) {
+    const hasillunch= await axios.get(`https://api.edamam.com/api/recipes/v2?type=public&q=chicken&app_id=0dda822b&app_key=e372f9948b90e95d2b78ce5fd5cb85d8`)
+    if(Math.floor(hasillunch.status/100) == 2)
+    {
+            
+            
+            res.render("menudiet",{"hasillunch":hasillunch});
+            return res.status(200).send({"hasillunch":hasillunch});
+    }
+    else
+    {
+            return res.status(500).send("Error Calling Recipe API");
+    } 
+
+});
+router.get('/menudinner', async function(req, res) {
+    const hasildinner= await axios.get(`https://api.edamam.com/api/recipes/v2?type=public&q=scallop&app_id=0dda822b&app_key=e372f9948b90e95d2b78ce5fd5cb85d8`)
+    if(Math.floor(hasildinner.status/100) == 2)
+    {
+            
+            
+            res.render("menudiet",{"hasildinner":hasildinner});
+            return res.status(200).send({"hasildinner":hasildinner});
+    }
+    else
+    {
+            return res.status(500).send("Error Calling Recipe API");
+    } 
+
+});
+//BREAKFAST : OATMEAL
+//LUNCH: CHICKEN
+//DINNER: SCALLOP
 
 route.put('/like/:id_diet', async function(req, res) {
     if(!req.headers['x-auth-token']){
